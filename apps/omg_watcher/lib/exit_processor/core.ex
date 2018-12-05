@@ -25,6 +25,7 @@ defmodule OMG.Watcher.ExitProcessor.Core do
   require Utxo
   alias OMG.Watcher.Eventer.Event
   alias OMG.Watcher.ExitProcessor.ExitInfo
+  alias OMG.Watcher.ExitProcessor.InFlightExitInfo
 
   use OMG.API.LoggerExt
 
@@ -33,7 +34,11 @@ defmodule OMG.Watcher.ExitProcessor.Core do
 
   defstruct [:sla_margin, exits: %{}]
 
-  @type t :: %__MODULE__{sla_margin: non_neg_integer(), exits: %{Utxo.Position.t() => ExitInfo.t()}}
+  @type t :: %__MODULE__{
+          sla_margin: non_neg_integer(),
+          exits: %{Utxo.Position.t() => ExitInfo.t()},
+          in_flight_exits: %{binary() => InFlightExitInfo.t()}
+        }
 
   @doc """
   Reads database-specific list of exits and turns them into current state
@@ -43,6 +48,7 @@ defmodule OMG.Watcher.ExitProcessor.Core do
     {:ok,
      %__MODULE__{
        exits: db_exits |> Enum.map(fn {k, v} -> {k, struct(ExitInfo, v)} end) |> Map.new(),
+       in_flight_exits: Map.new(), #TODO: init
        sla_margin: sla_margin
      }}
   end
