@@ -115,7 +115,7 @@ defmodule OMG.DB.LevelDBServer do
       |> Enum.map(fn {_, value} -> {:ok, value} end)
       |> LevelDBCore.decode_values(:in_flight_exit_info)
 
-    {:reply, {:ok, result}, state}
+    {:reply, result, state}
   end
 
   def handle_call(parameter, _from, %__MODULE__{db_ref: db_ref} = state)
