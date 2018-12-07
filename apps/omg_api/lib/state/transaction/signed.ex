@@ -60,74 +60,20 @@ defmodule OMG.API.State.Transaction.Signed do
   end
 
   def decode(signed_tx_bytes) do
-    with {:ok, tx} <- rlp_decode(signed_tx_bytes), do: reconstruct_tx(tx, signed_tx_bytes)
-  end
-
-  defp rlp_decode(line) do
-    try do
-      {:ok, ExRLP.decode(line)}
-    rescue
-      _ -> {:error, :malformed_transaction_rlp}
-    end
-  end
-
-  defp reconstruct_tx(
-         [
-           blknum1,
-           txindex1,
-           oindex1,
-           blknum2,
-           txindex2,
-           oindex2,
-           cur12,
-           newowner1,
-           amount1,
-           newowner2,
-           amount2,
-           sig1,
-           sig2
-         ],
-         signed_tx_bytes
-       ) do
-    with :ok <- signature_length?(sig1),
-         :ok <- signature_length?(sig2),
-         {:ok, parsed_cur12} <- address_parse(cur12),
-         {:ok, parsed_newowner1} <- address_parse(newowner1),
-         {:ok, parsed_newowner2} <- address_parse(newowner2) do
-      inputs = [
-        %{blknum: int_parse(blknum1), txindex: int_parse(txindex1), oindex: int_parse(oindex1)},
-        %{blknum: int_parse(blknum2), txindex: int_parse(txindex2), oindex: int_parse(oindex2)}
-      ]
-
-      outputs = [
-        %{owner: parsed_newowner1, amount: int_parse(amount1), currency: parsed_cur12},
-        %{owner: parsed_newowner2, amount: int_parse(amount2), currency: parsed_cur12}
-      ]
-
-      raw_tx = %Transaction{inputs: inputs, outputs: outputs}
-
+    with {:ok, %Transaction{} = tx, [sig1, sig2] = sigs} <- Transaction.decode(signed_tx_bytes),
+         :ok <- signature_length?(sig1),
+         :ok <- signature_length?(sig2) do
       {:ok,
        %__MODULE__{
-         raw_tx: raw_tx,
-         sigs: [sig1, sig2],
+         raw_tx: tx,
+         sigs: sigs,
          signed_tx_bytes: signed_tx_bytes
        }}
+    else
+      {:ok, %Transaction{}, _} -> {:error, :malformed_signed_transaction}
+      error -> error
     end
   end
-
-  # essentially - wrong number of fields after rlp decoding
-  defp reconstruct_tx(_singed_tx, _signed_tx_bytes) do
-    {:error, :malformed_transaction}
-  end
-
-  defp int_parse(int), do: :binary.decode_unsigned(int, :big)
-
-  # necessary, because RLP handles empty string equally to integer 0
-  @spec address_parse(<<>> | Crypto.address_t()) :: {:ok, Crypto.address_t()} | {:error, :malformed_address}
-  defp address_parse(address)
-  defp address_parse(""), do: {:ok, <<0::160>>}
-  defp address_parse(<<_::160>> = address_bytes), do: {:ok, address_bytes}
-  defp address_parse(_), do: {:error, :malformed_address}
 
   defp signature_length?(sig) when byte_size(sig) == @signature_length, do: :ok
   defp signature_length?(_sig), do: {:error, :bad_signature_length}

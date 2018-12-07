@@ -186,6 +186,60 @@ defmodule OMG.API.State.Transaction do
     |> ExRLP.encode()
   end
 
+  def decode(tx_bytes) do
+    with {:ok, tx} <- rlp_decode(tx_bytes), do: reconstruct_tx(tx)
+  end
+
+  defp reconstruct_tx([
+         blknum1,
+         txindex1,
+         oindex1,
+         blknum2,
+         txindex2,
+         oindex2,
+         cur12,
+         newowner1,
+         amount1,
+         newowner2,
+         amount2 | tail
+       ]) do
+    with {:ok, parsed_cur12} <- address_parse(cur12),
+         {:ok, parsed_newowner1} <- address_parse(newowner1),
+         {:ok, parsed_newowner2} <- address_parse(newowner2) do
+      inputs = [
+        %{blknum: int_parse(blknum1), txindex: int_parse(txindex1), oindex: int_parse(oindex1)},
+        %{blknum: int_parse(blknum2), txindex: int_parse(txindex2), oindex: int_parse(oindex2)}
+      ]
+
+      outputs = [
+        %{owner: parsed_newowner1, amount: int_parse(amount1), currency: parsed_cur12},
+        %{owner: parsed_newowner2, amount: int_parse(amount2), currency: parsed_cur12}
+      ]
+
+      {:ok, %__MODULE__{inputs: inputs, outputs: outputs}, tail}
+    end
+  end
+
+  defp reconstruct_tx(_), do: {:error, :malformed_transaction}
+
+  defp rlp_decode(line) do
+    try do
+      {:ok, ExRLP.decode(line)}
+    rescue
+      _ -> {:error, :malformed_transaction_rlp}
+    end
+  end
+
+  # TODO: refactor
+  defp int_parse(int), do: :binary.decode_unsigned(int, :big)
+
+  # necessary, because RLP handles empty string equally to integer 0
+  @spec address_parse(<<>> | Crypto.address_t()) :: {:ok, Crypto.address_t()} | {:error, :malformed_address}
+  defp address_parse(address)
+  defp address_parse(""), do: {:ok, <<0::160>>}
+  defp address_parse(<<_::160>> = address_bytes), do: {:ok, address_bytes}
+  defp address_parse(_), do: {:error, :malformed_address}
+
   def hash(%__MODULE__{} = tx) do
     tx
     |> encode
