@@ -19,6 +19,14 @@ defmodule OMG.DB.LevelDBCore do
 
   # adapter - testable, if we really really want to
 
+  @keys_prefixes %{
+    block: "b",
+    block_hash: "bn",
+    utxo: "u",
+    exit_info: "e",
+    in_flight_exit_info: "ife"
+  }
+
   def parse_multi_updates(db_updates) do
     db_updates
     |> Enum.flat_map(&parse_multi_update/1)
@@ -68,54 +76,24 @@ defmodule OMG.DB.LevelDBCore do
 
   defp encode_value(_type, value), do: :erlang.term_to_binary(value)
 
-  def filter_utxos(keys_stream) do
-    keys_stream
-    |> Stream.filter(fn
-      {"u" <> _rest, _} -> true
-      _ -> false
-    end)
-  end
+  def filter_utxos(keys_stream), do: filter_keys(keys_stream, @keys_prefixes.utxo)
 
-  def filter_exit_infos(keys_stream) do
-    keys_stream
-    |> Stream.filter(fn
-      {"e" <> _rest, _} -> true
-      _ -> false
-    end)
-  end
+  def filter_exit_infos(keys_stream), do: filter_keys(keys_stream, @keys_prefixes.exit_info)
 
-  def filter_in_flight_exits_info(keys_stream) do
-    keys_stream
-    |> Stream.filter(fn
-      {"ife" <> _rest, _} -> true
-      _ -> false
-    end)
-  end
+  def filter_in_flight_exits_info(keys_stream), do: filter_keys(keys_stream, @keys_prefixes.in_flight_exit_info)
+
+  defp filter_keys(keys_stream, prefix),
+    do: Stream.filter(keys_stream, fn {key, _} -> String.starts_with?(key, prefix) end)
 
   def key(:block, %{hash: hash} = _block), do: key(:block, hash)
-  def key(:block, hash), do: "b" <> hash
+  def key(:block, hash), do: @keys_prefixes.block <> hash
+  def key(:utxo, {position, _utxo}), do: key(:utxo, position)
+  def key(:exit_info, {position, _exit_info}), do: key(:utxo, position)
 
-  def key(:block_hash, number), do: "bn" <> :erlang.term_to_binary(number)
+  @key_types Map.keys(@keys_prefixes)
 
-  def key(:utxo, {position, _utxo}) do
-    key(:utxo, position)
-  end
-
-  def key(:utxo, position) do
-    "u" <> :erlang.term_to_binary(position)
-  end
-
-  def key(:exit_info, {position, _exit_info}) do
-    key(:utxo, position)
-  end
-
-  def key(:exit_info, position) do
-    "e" <> :erlang.term_to_binary(position)
-  end
-
-  def key(:in_flight_exit_info, position) do
-    "ife" <> :erlang.term_to_binary(position)
-  end
+  def key(type, item) when type in @key_types,
+    do: Map.get(@keys_prefixes, type) <> :erlang.term_to_binary(item)
 
   @single_value_parameter_names [
     :child_top_block_number,
