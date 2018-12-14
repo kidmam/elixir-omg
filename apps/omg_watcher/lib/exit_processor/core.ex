@@ -96,7 +96,7 @@ defmodule OMG.Watcher.ExitProcessor.Core do
   defp parse_contract_status({@zero_address, _contract_token, _contract_amount}), do: false
   defp parse_contract_status({_contract_owner, _contract_token, _contract_amount}), do: true
 
-  # TODO: docs, spec
+  # TODO: syncing problem (look new exits)
   @doc """
    Add new in flight exits from Ethereum events into tracked state.
   """

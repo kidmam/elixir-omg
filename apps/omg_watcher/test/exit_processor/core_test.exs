@@ -365,6 +365,15 @@ defmodule OMG.Watcher.ExitProcessor.CoreTest do
     {:ok, ^final_state} = Core.init([], ifes)
   end
 
+  #  #TODO
+  #  @tag fixtures: [:processor_empty, :alice, :in_flight_exit_events]
+  #  test "active piggybacks from inputs are monitored", %{
+  #    processor_empty: empty,
+  #    in_flight_exit_events: ife_events
+  #  } do
+  #    Core.new_in_flight_exits(empty, [timestamp: 1001], ife_events)
+  #  end
+
   @tag fixtures: [:processor_filled, :in_flight_exits]
   test "persists new piggybacks", %{processor_filled: state, in_flight_exits: ifes} do
     events = Enum.map(ifes, fn {id, _} -> {id, 0} end)
